@@ -272,3 +272,93 @@ if uploaded_file is not None:
 
 else:
     st.info("👈 Upload a CSV file or click 'Use Demo Data' to get started!")
+
+    # --- FILTERS & DEFAULT VISUALIZATIONS ---
+    # Parse Date column if present
+    if 'Date' in df.columns:
+        try:
+            df['Date'] = pd.to_datetime(df['Date'], dayfirst=True, errors='coerce')
+        except Exception:
+            pass
+
+    st.markdown("### 🔎 Filters & Quick Visualizations")
+    with st.container():
+        fcol1, fcol2, fcol3 = st.columns([2, 2, 1])
+
+        # Date range filter
+        if 'Date' in df.columns and df['Date'].notnull().any():
+            min_date = df['Date'].min().date()
+            max_date = df['Date'].max().date()
+            date_range = fcol1.date_input("Date range", value=(min_date, max_date))
+        else:
+            date_range = None
+
+        # Campaign Type filter
+        if 'Campaign_Type' in df.columns:
+            types = sorted(df['Campaign_Type'].dropna().unique().tolist())
+            sel_types = fcol2.multiselect("Campaign Type", options=types, default=types)
+        else:
+            sel_types = None
+
+        # Channel filter (multiselect by detecting substrings)
+        if 'Channel_Used' in df.columns:
+            all_channels = set()
+            for v in df['Channel_Used'].dropna().astype(str):
+                for c in [c.strip() for c in v.split(',')]:
+                    if c:
+                        all_channels.add(c)
+            all_channels = sorted(all_channels)
+            sel_channels = fcol3.multiselect("Channels", options=all_channels, default=all_channels)
+        else:
+            sel_channels = None
+
+    # Apply filters
+    filtered = df.copy()
+    if date_range and isinstance(date_range, tuple) and len(date_range) == 2:
+        start, end = date_range
+        filtered = filtered[(filtered['Date'] >= pd.to_datetime(start)) & (filtered['Date'] <= pd.to_datetime(end))]
+    if sel_types is not None:
+        filtered = filtered[filtered['Campaign_Type'].isin(sel_types)]
+    if sel_channels is not None:
+        filtered = filtered[filtered['Channel_Used'].astype(str).apply(lambda s: any(ch in s for ch in sel_channels))]
+
+    # Summary metrics
+    col_a, col_b, col_c = st.columns(3)
+    total_revenue = int(filtered['Revenue'].sum()) if 'Revenue' in filtered.columns else 0
+    total_conversions = int(filtered['Conversions'].sum()) if 'Conversions' in filtered.columns else 0
+    total_impressions = int(filtered['Impressions'].sum()) if 'Impressions' in filtered.columns else 0
+    conversion_rate = (total_conversions / total_impressions * 100) if total_impressions else 0
+    with col_a:
+        st.markdown(f"<div class='metric-card'><div class='metric-value'>{total_revenue:,}</div><div class='metric-label'>Total Revenue</div></div>", unsafe_allow_html=True)
+    with col_b:
+        st.markdown(f"<div class='metric-card'><div class='metric-value'>{total_conversions:,}</div><div class='metric-label'>Conversions</div></div>", unsafe_allow_html=True)
+    with col_c:
+        st.markdown(f"<div class='metric-card'><div class='metric-value'>{conversion_rate:.2f}%</div><div class='metric-label'>Conversion Rate</div></div>", unsafe_allow_html=True)
+
+    # Default charts: Top Campaigns by Revenue, Revenue Trend, Channel Breakdown
+    chart_col1, chart_col2 = st.columns([2, 1])
+    with chart_col1:
+        if 'Revenue' in filtered.columns and 'Campaign_ID' in filtered.columns:
+            top = filtered.groupby('Campaign_ID', as_index=False)['Revenue'].sum().sort_values('Revenue', ascending=False).head(10)
+            fig1 = create_chart('bar', top, 'Campaign_ID', 'Revenue', title='Top 10 Campaigns by Revenue', height=420, template=chart_template)
+            st.plotly_chart(fig1, use_container_width=True)
+        if 'Date' in filtered.columns and 'Revenue' in filtered.columns:
+            trend = filtered.groupby(pd.Grouper(key='Date', freq='M'))['Revenue'].sum().reset_index()
+            if not trend.empty:
+                fig2 = create_chart('line', trend, 'Date', 'Revenue', title='Monthly Revenue Trend', height=360, template=chart_template)
+                st.plotly_chart(fig2, use_container_width=True)
+
+    with chart_col2:
+        if 'Channel_Used' in filtered.columns and 'Revenue' in filtered.columns:
+            # aggregate revenue by channel (split comma-separated channels)
+            rows = []
+            for _, r in filtered.iterrows():
+                rev = r.get('Revenue', 0)
+                for ch in str(r.get('Channel_Used', '')).split(','):
+                    ch = ch.strip()
+                    if ch:
+                        rows.append({'channel': ch, 'revenue': rev})
+            if rows:
+                chdf = pd.DataFrame(rows).groupby('channel', as_index=False)['revenue'].sum().sort_values('revenue', ascending=False)
+                fig3 = create_chart('pie', chdf, 'channel', 'revenue', title='Revenue by Channel', height=600, template=chart_template)
+                st.plotly_chart(fig3, use_container_width=True)
