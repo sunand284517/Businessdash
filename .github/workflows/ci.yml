@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Sanity import check
+        run: |
+          python - <<'PY'
+import importlib
+reqs = ['streamlit','pandas']
+missing = []
+for r in reqs:
+    try:
+        importlib.import_module(r)
+    except Exception as e:
+        print('Import failed:', r, e)
+        missing.append(r)
+if missing:
+    raise SystemExit('Missing requirements: ' + ','.join(missing))
+print('Import check passed')
+PY
+
+      - name: Build Docker image
+        run: docker build -t businessdash:ci .
