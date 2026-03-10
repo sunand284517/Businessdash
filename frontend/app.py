@@ -7,6 +7,9 @@ import pandas as pd
 import sys
 import os
 import json
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Add parent directory to path to import backend modules
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -30,6 +33,20 @@ st.markdown(get_styling(), unsafe_allow_html=True)
 @st.cache_data
 def load_demo_data():
     """Load demo dataset for quick testing."""
+    # Allow loading a real CSV for demo via env var SAMPLE_CSV_PATH
+    sample_path = os.getenv("SAMPLE_CSV_PATH")
+    # Packaged demo CSV inside repo (preferred when present)
+    packaged_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'data', 'nykaa_marketing.csv')
+    if os.path.exists(packaged_path):
+        try:
+            return pd.read_csv(packaged_path)
+        except Exception:
+            pass
+    if sample_path and os.path.exists(sample_path):
+        try:
+            return pd.read_csv(sample_path)
+        except Exception:
+            pass
     return pd.DataFrame({
         'Region': ['North', 'South', 'East', 'West', 'North', 'South', 'East', 'West'],
         'Category': ['Electronics', 'Electronics', 'Clothing', 'Clothing', 'Electronics', 'Electronics', 'Clothing', 'Clothing'],
