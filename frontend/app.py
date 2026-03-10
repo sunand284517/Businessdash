@@ -41,7 +41,19 @@ def load_demo_data():
 # --- UI HEADER ---
 col1, col2 = st.columns([3, 1])
 with col1:
-    st.title("📊 Conversational BI Dashboard")
+        # Hero header with logo
+        st.markdown(
+                """
+                <div class="hero">
+                    <div class="logo">BI</div>
+                    <div>
+                        <h1>📊 Conversational BI Dashboard</h1>
+                        <div class="subtitle">Ask natural language questions and get instant AI visualizations</div>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+        )
 with col2:
     st.write("")
     st.write("")
@@ -65,10 +77,12 @@ with st.sidebar:
 
 
 # --- FILE UPLOAD SECTION ---
-st.markdown("### 📁 Upload Your Data")
-col1, col2 = st.columns([3, 1])
-with col1:
-    uploaded_file = st.file_uploader("Choose a CSV file", type="csv", label_visibility="collapsed")
+    st.markdown("### 📁 Upload Your Data")
+    col1, col2 = st.columns([3, 1])
+    with col1:
+        st.markdown('<div class="upload-box">', unsafe_allow_html=True)
+        uploaded_file = st.file_uploader("Choose a CSV file", type="csv", label_visibility="collapsed")
+        st.markdown('</div>', unsafe_allow_html=True)
 with col2:
     st.write("")
     if st.button("📊 Use Demo Data"):
@@ -123,13 +137,13 @@ if uploaded_file is not None:
             if show_stats:
                 col1, col2, col3, col4 = st.columns(4)
                 with col1:
-                    st.metric("📊 Total Rows", stats['rows'])
+                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{stats['rows']}</div><div class='metric-label'>Total Rows</div></div>", unsafe_allow_html=True)
                 with col2:
-                    st.metric("📈 Columns", stats['columns'])
+                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{stats['columns']}</div><div class='metric-label'>Columns</div></div>", unsafe_allow_html=True)
                 with col3:
-                    st.metric("🔢 Numeric", stats['numeric_columns'])
+                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{stats['numeric_columns']}</div><div class='metric-label'>Numeric</div></div>", unsafe_allow_html=True)
                 with col4:
-                    st.metric("❓ Missing Values", stats['missing_values'])
+                    st.markdown(f"<div class='metric-card'><div class='metric-value'>{stats['missing_values']}</div><div class='metric-label'>Missing Values</div></div>", unsafe_allow_html=True)
                 
                 st.markdown("**Numeric Columns Summary:**")
                 st.dataframe(df.describe(), use_container_width=True)
@@ -149,6 +163,9 @@ if uploaded_file is not None:
     st.markdown("### 💬 Ask a Question About Your Data")
     
     col1, col2 = st.columns([4, 1])
+    # set chart template based on theme
+    chart_template = "plotly_white" if theme == "Light" else "plotly_dark"
+
     with col1:
         query = st.text_input(
             "Enter your question:",
@@ -183,7 +200,8 @@ if uploaded_file is not None:
                             result_df,
                             plan['x'],
                             plan['y'],
-                            height=chart_height
+                            height=chart_height,
+                            template=chart_template
                         )
                         
                         if fig:
